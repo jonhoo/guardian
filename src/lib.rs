@@ -211,34 +211,32 @@ impl<T> From<rc::Rc<sync::Mutex<T>>> for RcMutexGuardian<T> {
 // ****************************************************************************
 
 macro_rules! take {
-    ( $lock:ty, $guard:ty, $nguardian:ident, $guardiant:ty, $lfunc:ident ) => {
-        pub fn take(handle: $lock) -> sync::LockResult<$guardiant> {
-            use std::mem;
+    ( $handle: ident, $guard:ty, $guardian:ident, $lfunc:ident ) => {{
+        use std::mem;
 
-            // We want to express that it's safe to keep the read guard around for as long as the
-            // Arc/Rc is around. Unfortunately, we can't say this directly with lifetimes, because
-            // we have to move the Arc/Rc below, which Rust doesn't know allows the borrow to
-            // continue. We therefore transmute to a 'static Guard, and ensure that any borrows we
-            // expose are bounded by the lifetime of the guardian (which also holds the Arc/Rc).
-            let lock: sync::LockResult<$guard> =
-                unsafe { mem::transmute(handle.$lfunc()) };
+        // We want to express that it's safe to keep the read guard around for as long as the
+        // Arc/Rc is around. Unfortunately, we can't say this directly with lifetimes, because
+        // we have to move the Arc/Rc below, which Rust doesn't know allows the borrow to
+        // continue. We therefore transmute to a 'static Guard, and ensure that any borrows we
+        // expose are bounded by the lifetime of the guardian (which also holds the Arc/Rc).
+        let lock: sync::LockResult<$guard> =
+            unsafe { mem::transmute($handle.$lfunc()) };
 
-            match lock {
-                Ok(guard) => {
-                    Ok($nguardian {
-                        _handle: handle,
-                        inner: guard,
-                    })
-                }
-                Err(guard) => {
-                    Err(sync::PoisonError::new($nguardian {
-                        _handle: handle,
-                        inner: guard.into_inner(),
-                    }))
-                }
+        match lock {
+            Ok(guard) => {
+                Ok($guardian {
+                    _handle: $handle,
+                    inner: guard,
+                })
+            }
+            Err(guard) => {
+                Err(sync::PoisonError::new($guardian {
+                    _handle: $handle,
+                    inner: guard.into_inner(),
+                }))
             }
         }
-    }
+    }}
 }
 
 impl<T> ArcRwLockReadGuardian<T> {
@@ -253,7 +251,9 @@ impl<T> ArcRwLockReadGuardian<T> {
     /// Returns an RAII guardian which will release this thread's shared access once it is dropped.
     /// The guardian also holds a strong reference to the lock's `Arc`, which is dropped when the
     /// guard is.
-    take!(sync::Arc<sync::RwLock<T>>, sync::RwLockReadGuard<'static, T>, ArcRwLockReadGuardian, ArcRwLockReadGuardian<T>, read);
+    pub fn take(handle: sync::Arc<sync::RwLock<T>>) -> sync::LockResult<ArcRwLockReadGuardian<T>> {
+        take!(handle, sync::RwLockReadGuard<'static, T>, ArcRwLockReadGuardian, read)
+    }
 }
 
 impl<T> ArcRwLockWriteGuardian<T> {
@@ -272,7 +272,9 @@ impl<T> ArcRwLockWriteGuardian<T> {
     /// This function will return an error if the `RwLock` is poisoned. An `RwLock` is poisoned
     /// whenever a writer panics while holding an exclusive lock. An error will be returned when
     /// the lock is acquired.
-    take!(sync::Arc<sync::RwLock<T>>, sync::RwLockWriteGuard<'static, T>, ArcRwLockWriteGuardian, ArcRwLockWriteGuardian<T>, write);
+    pub fn take(handle: sync::Arc<sync::RwLock<T>>) -> sync::LockResult<ArcRwLockWriteGuardian<T>> {
+        take!(handle, sync::RwLockWriteGuard<'static, T>, ArcRwLockWriteGuardian, write)
+    }
 }
 
 impl<T> ArcMutexGuardian<T> {
@@ -288,7 +290,9 @@ impl<T> ArcMutexGuardian<T> {
     ///
     /// If another user of this mutex panicked while holding the mutex, then this call will return
     /// an error once the mutex is acquired.
-    take!(sync::Arc<sync::Mutex<T>>, sync::MutexGuard<'static, T>, ArcMutexGuardian, ArcMutexGuardian<T>, lock);
+    pub fn take(handle: sync::Arc<sync::Mutex<T>>) -> sync::LockResult<ArcMutexGuardian<T>> {
+        take!(handle, sync::MutexGuard<'static, T>, ArcMutexGuardian, lock)
+    }
 }
 
 // And this is all the same as above, but with s/Arc/Rc/
@@ -305,7 +309,9 @@ impl<T> RcRwLockReadGuardian<T> {
     /// Returns an RAII guardian which will release this thread's shared access once it is dropped.
     /// The guardian also holds a strong reference to the lock's `Rc`, which is dropped when the
     /// guard is.
-    take!(rc::Rc<sync::RwLock<T>>, sync::RwLockReadGuard<'static, T>, RcRwLockReadGuardian, RcRwLockReadGuardian<T>, read);
+    pub fn take(handle: rc::Rc<sync::RwLock<T>>) -> sync::LockResult<RcRwLockReadGuardian<T>> {
+        take!(handle, sync::RwLockReadGuard<'static, T>, RcRwLockReadGuardian, read)
+    }
 }
 
 impl<T> RcRwLockWriteGuardian<T> {
@@ -324,7 +330,9 @@ impl<T> RcRwLockWriteGuardian<T> {
     /// This function will return an error if the `RwLock` is poisoned. An `RwLock` is poisoned
     /// whenever a writer panics while holding an exclusive lock. An error will be returned when
     /// the lock is acquired.
-    take!(rc::Rc<sync::RwLock<T>>, sync::RwLockWriteGuard<'static, T>, RcRwLockWriteGuardian, RcRwLockWriteGuardian<T>, write);
+    pub fn take(handle: rc::Rc<sync::RwLock<T>>) -> sync::LockResult<RcRwLockWriteGuardian<T>> {
+        take!(handle, sync::RwLockWriteGuard<'static, T>, RcRwLockWriteGuardian, write)
+    }
 }
 
 impl<T> RcMutexGuardian<T> {
@@ -340,7 +348,9 @@ impl<T> RcMutexGuardian<T> {
     ///
     /// If another user of this mutex panicked while holding the mutex, then this call will return
     /// an error once the mutex is acquired.
-    take!(rc::Rc<sync::Mutex<T>>, sync::MutexGuard<'static, T>, RcMutexGuardian, RcMutexGuardian<T>, lock);
+    pub fn take(handle: rc::Rc<sync::Mutex<T>>) -> sync::LockResult<RcMutexGuardian<T>> {
+        take!(handle, sync::MutexGuard<'static, T>, RcMutexGuardian, lock)
+    }
 }
 
 // ****************************************************************************
