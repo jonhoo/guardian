@@ -219,15 +219,10 @@ impl<T> ArcRwLockWriteGuardian<T> {
     pub fn take(handle: sync::Arc<sync::RwLock<T>>) -> sync::LockResult<ArcRwLockWriteGuardian<T>> {
         use std::mem;
 
-        // We want to express that it's safe to keep the read guard around for as long as the Arc
-        // is around. Unfortunately, we can't say this directly with lifetimes, because we have to
-        // move the Arc below, which Rust doesn't know allows the borrow to continue. We therefore
-        // transmute to a 'static RwLockWriteGuard, and ensure that any borrows we expose are
-        // bounded by the lifetime of the guardian (which also holds the Arc).
-        let rlock: sync::LockResult<sync::RwLockWriteGuard<'static, T>> =
+        let wlock: sync::LockResult<sync::RwLockWriteGuard<'static, T>> =
             unsafe { mem::transmute(handle.write()) };
 
-        match rlock {
+        match wlock {
             Ok(guard) => {
                 Ok(ArcRwLockWriteGuardian {
                     _handle: handle,
