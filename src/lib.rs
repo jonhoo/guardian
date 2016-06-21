@@ -28,6 +28,9 @@ use std::ops::DerefMut;
 
 /// RAII structure used to release the shared read access of a lock when dropped.
 /// Keeps a handle to an `Arc` so that the lock is not dropped until the guard is.
+///
+/// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
+/// implementations.
 pub struct ArcRwLockReadGuardian<T: 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
     inner: sync::RwLockReadGuard<'static, T>,
@@ -186,6 +189,9 @@ mod tests {
 
 /// RAII structure used to release the exclusive write access of a lock when dropped.
 /// Keeps a handle to an `Arc` so that the lock is not dropped until the guard is.
+///
+/// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
+/// implementations.
 pub struct ArcRwLockWriteGuardian<T: 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
     inner: sync::RwLockWriteGuard<'static, T>,
