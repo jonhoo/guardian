@@ -140,38 +140,28 @@ mod tests {
     fn arc_rw_write() {
         let base = sync::Arc::new(sync::RwLock::new(true));
 
-        // the use of scopes below is necessary so that we can drop base at the end.
-        // otherwise, all the x1's (i.e., base.read()) would hold on to borrows.
-        // this is part of the problem that Guardian is trying to solve.
+        let mut x = ArcRwLockWriteGuardian::take(base.clone()).unwrap();
 
-        let x = {
-            let mut x = ArcRwLockWriteGuardian::take(base.clone()).unwrap();
+        // guardian dereferences correctly
+        assert_eq!(&*x, &true);
 
-            // guardian dereferences correctly
-            assert_eq!(&*x, &true);
+        // guardian can write
+        *x = false;
+        assert_eq!(&*x, &false);
 
-            // guardian can write
-            *x = false;
-            assert_eq!(&*x, &false);
+        // guardian holds write lock
+        assert!(base.try_read().is_err(), "guardian holds write lock");
 
-            // guardian holds write lock
-            assert!(base.try_read().is_err(), "guardian holds write lock");
+        // guardian can be moved
+        let x_ = x;
+        assert_eq!(&*x_, &false);
 
-            x
-        };
+        // moving guardian does not release lock
+        assert!(base.try_read().is_err(), "guardian still holds write lock");
 
-        {
-            // guardian can be moved
-            let x_ = x;
-            assert_eq!(&*x_, &false);
-
-            // moving guardian does not release lock
-            assert!(base.try_read().is_err(), "guardian still holds write lock");
-
-            // dropping guardian drops write lock
-            drop(x_);
-            assert!(base.try_read().is_ok(), "guardian drops write lock");
-        }
+        // dropping guardian drops write lock
+        drop(x_);
+        assert!(base.try_read().is_ok(), "guardian drops write lock");
 
         // guardian works even after all other Arcs have been dropped
         let x = ArcRwLockWriteGuardian::take(base).unwrap();
