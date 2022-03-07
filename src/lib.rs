@@ -16,15 +16,18 @@
 //! result may be poisoned on panics. The poison is propagated from that of the underlying `lock()`
 //! method, so for `RwLock`s, the same rule applies for when a lock may be poisioned.
 
-use std::rc;
-use std::sync;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::rc;
+use std::sync;
 
 // ATTENTION READERS:
 // Most of the code looks identical for Arc vs Rc, for RwLockRead vs RwLockWrite, and for Mutex vs
 // RwLock. If you change anything for one type, be sure to also make the same changes to the other
 // variants below.
+//
+// Each structure holds the guard in an Option to ensure that we drop the guard before we drop the
+// handle, as dropping the guard will access the handle.
 
 // ****************************************************************************
 // The basic wrapper types
@@ -37,7 +40,7 @@ use std::ops::DerefMut;
 /// implementations.
 pub struct ArcRwLockReadGuardian<T: 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
-    inner: sync::RwLockReadGuard<'static, T>,
+    inner: Option<sync::RwLockReadGuard<'static, T>>,
 }
 
 /// RAII structure used to release the exclusive write access of a lock when dropped.
@@ -47,7 +50,7 @@ pub struct ArcRwLockReadGuardian<T: 'static> {
 /// implementations.
 pub struct ArcRwLockWriteGuardian<T: 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
-    inner: sync::RwLockWriteGuard<'static, T>,
+    inner: Option<sync::RwLockWriteGuard<'static, T>>,
 }
 
 /// An RAII implementation of a "scoped lock" of a mutex. When this structure is dropped (falls out
@@ -58,7 +61,7 @@ pub struct ArcRwLockWriteGuardian<T: 'static> {
 /// implementations.
 pub struct ArcMutexGuardian<T: 'static> {
     _handle: sync::Arc<sync::Mutex<T>>,
-    inner: sync::MutexGuard<'static, T>,
+    inner: Option<sync::MutexGuard<'static, T>>,
 }
 
 /// RAII structure used to release the shared read access of a lock when dropped.
@@ -68,7 +71,7 @@ pub struct ArcMutexGuardian<T: 'static> {
 /// implementations.
 pub struct RcRwLockReadGuardian<T: 'static> {
     _handle: rc::Rc<sync::RwLock<T>>,
-    inner: sync::RwLockReadGuard<'static, T>,
+    inner: Option<sync::RwLockReadGuard<'static, T>>,
 }
 
 /// RAII structure used to release the exclusive write access of a lock when dropped.
@@ -78,7 +81,7 @@ pub struct RcRwLockReadGuardian<T: 'static> {
 /// implementations.
 pub struct RcRwLockWriteGuardian<T: 'static> {
     _handle: rc::Rc<sync::RwLock<T>>,
-    inner: sync::RwLockWriteGuard<'static, T>,
+    inner: Option<sync::RwLockWriteGuard<'static, T>>,
 }
 
 /// An RAII implementation of a "scoped lock" of a mutex. When this structure is dropped (falls out
@@ -89,7 +92,7 @@ pub struct RcRwLockWriteGuardian<T: 'static> {
 /// implementations.
 pub struct RcMutexGuardian<T: 'static> {
     _handle: rc::Rc<sync::Mutex<T>>,
-    inner: sync::MutexGuard<'static, T>,
+    inner: Option<sync::MutexGuard<'static, T>>,
 }
 
 // ****************************************************************************
@@ -99,42 +102,42 @@ pub struct RcMutexGuardian<T: 'static> {
 impl<T> Deref for ArcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &*self.inner
+        self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
 impl<T> Deref for ArcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &*self.inner
+        self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
 impl<T> Deref for ArcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &*self.inner
+        self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
 impl<T> Deref for RcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &*self.inner
+        self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
 impl<T> Deref for RcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &*self.inner
+        self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
 impl<T> Deref for RcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &*self.inner
+        self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
@@ -144,25 +147,25 @@ impl<T> Deref for RcMutexGuardian<T> {
 
 impl<T> DerefMut for ArcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut *self.inner
+        self.inner.as_mut().expect("inner is None only in drop")
     }
 }
 
 impl<T> DerefMut for RcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut *self.inner
+        self.inner.as_mut().expect("inner is None only in drop")
     }
 }
 
 impl<T> DerefMut for ArcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut *self.inner
+        self.inner.as_mut().expect("inner is None only in drop")
     }
 }
 
 impl<T> DerefMut for RcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut *self.inner
+        self.inner.as_mut().expect("inner is None only in drop")
     }
 }
 
@@ -219,24 +222,19 @@ macro_rules! take {
         // we have to move the Arc/Rc below, which Rust doesn't know allows the borrow to
         // continue. We therefore transmute to a 'static Guard, and ensure that any borrows we
         // expose are bounded by the lifetime of the guardian (which also holds the Arc/Rc).
-        let lock: sync::LockResult<$guard> =
-            unsafe { mem::transmute($handle.$lfunc()) };
+        let lock: sync::LockResult<$guard> = unsafe { mem::transmute($handle.$lfunc()) };
 
         match lock {
-            Ok(guard) => {
-                Ok($guardian {
-                    _handle: $handle,
-                    inner: guard,
-                })
-            }
-            Err(guard) => {
-                Err(sync::PoisonError::new($guardian {
-                    _handle: $handle,
-                    inner: guard.into_inner(),
-                }))
-            }
+            Ok(guard) => Ok($guardian {
+                _handle: $handle,
+                inner: Some(guard),
+            }),
+            Err(guard) => Err(sync::PoisonError::new($guardian {
+                _handle: $handle,
+                inner: Some(guard.into_inner()),
+            })),
         }
-    }}
+    }};
 }
 
 impl<T> ArcRwLockReadGuardian<T> {
@@ -252,7 +250,12 @@ impl<T> ArcRwLockReadGuardian<T> {
     /// The guardian also holds a strong reference to the lock's `Arc`, which is dropped when the
     /// guard is.
     pub fn take(handle: sync::Arc<sync::RwLock<T>>) -> sync::LockResult<ArcRwLockReadGuardian<T>> {
-        take!(handle, sync::RwLockReadGuard<'static, T>, ArcRwLockReadGuardian, read)
+        take!(
+            handle,
+            sync::RwLockReadGuard<'static, T>,
+            ArcRwLockReadGuardian,
+            read
+        )
     }
 }
 
@@ -273,7 +276,12 @@ impl<T> ArcRwLockWriteGuardian<T> {
     /// whenever a writer panics while holding an exclusive lock. An error will be returned when
     /// the lock is acquired.
     pub fn take(handle: sync::Arc<sync::RwLock<T>>) -> sync::LockResult<ArcRwLockWriteGuardian<T>> {
-        take!(handle, sync::RwLockWriteGuard<'static, T>, ArcRwLockWriteGuardian, write)
+        take!(
+            handle,
+            sync::RwLockWriteGuard<'static, T>,
+            ArcRwLockWriteGuardian,
+            write
+        )
     }
 }
 
@@ -310,7 +318,12 @@ impl<T> RcRwLockReadGuardian<T> {
     /// The guardian also holds a strong reference to the lock's `Rc`, which is dropped when the
     /// guard is.
     pub fn take(handle: rc::Rc<sync::RwLock<T>>) -> sync::LockResult<RcRwLockReadGuardian<T>> {
-        take!(handle, sync::RwLockReadGuard<'static, T>, RcRwLockReadGuardian, read)
+        take!(
+            handle,
+            sync::RwLockReadGuard<'static, T>,
+            RcRwLockReadGuardian,
+            read
+        )
     }
 }
 
@@ -331,7 +344,12 @@ impl<T> RcRwLockWriteGuardian<T> {
     /// whenever a writer panics while holding an exclusive lock. An error will be returned when
     /// the lock is acquired.
     pub fn take(handle: rc::Rc<sync::RwLock<T>>) -> sync::LockResult<RcRwLockWriteGuardian<T>> {
-        take!(handle, sync::RwLockWriteGuard<'static, T>, RcRwLockWriteGuardian, write)
+        take!(
+            handle,
+            sync::RwLockWriteGuard<'static, T>,
+            RcRwLockWriteGuardian,
+            write
+        )
     }
 }
 
@@ -354,14 +372,54 @@ impl<T> RcMutexGuardian<T> {
 }
 
 // ****************************************************************************
+// Drop
+// ****************************************************************************
+
+impl<T> Drop for ArcRwLockReadGuardian<T> {
+    fn drop(&mut self) {
+        self.inner.take();
+    }
+}
+
+impl<T> Drop for ArcRwLockWriteGuardian<T> {
+    fn drop(&mut self) {
+        self.inner.take();
+    }
+}
+
+impl<T> Drop for ArcMutexGuardian<T> {
+    fn drop(&mut self) {
+        self.inner.take();
+    }
+}
+
+impl<T> Drop for RcRwLockReadGuardian<T> {
+    fn drop(&mut self) {
+        self.inner.take();
+    }
+}
+
+impl<T> Drop for RcRwLockWriteGuardian<T> {
+    fn drop(&mut self) {
+        self.inner.take();
+    }
+}
+
+impl<T> Drop for RcMutexGuardian<T> {
+    fn drop(&mut self) {
+        self.inner.take();
+    }
+}
+
+// ****************************************************************************
 // And finally all the tests
 // ****************************************************************************
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync;
     use std::rc;
+    use std::sync;
 
     #[test]
     fn arc_rw_read() {
