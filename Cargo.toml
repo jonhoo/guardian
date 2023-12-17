@@ -1,6 +1,6 @@
 [package]
 name = "guardian"
-version = "1.0.2"
+version = "1.1.0"
 edition = "2021"
 rust-version = "1.56.0" # only really for edition
 description = "Provides owned mutex guards for refcounted mutexes."
