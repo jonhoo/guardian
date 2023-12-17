@@ -98,7 +98,7 @@ jobs:
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
-        msrv: ["1.16.0"] # 1.16 added cargo check, lib supports even lower
+        msrv: ["1.31.0"] # 1.31 for 2018 edition
     name: ubuntu / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v4
