@@ -1,20 +1,17 @@
 [package]
 name = "guardian"
 version = "1.0.2"
-edition = "2018"
-
+edition = "2021"
+rust-version = "1.56.0" # only really for edition
 description = "Provides owned mutex guards for refcounted mutexes."
-readme = "README.md"
-
 authors = ["Jon Gjengset <jon@thesquareplanet.com>"]
 
-documentation = "https://docs.rs/guardian"
 homepage = "https://github.com/jonhoo/guardian"
 repository = "https://github.com/jonhoo/guardian.git"
 
 keywords = ["locks","mutex","synchronization","rc"]
 categories = ["concurrency"]
 
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
