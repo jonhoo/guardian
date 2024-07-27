@@ -226,12 +226,12 @@ macro_rules! try_take {
         let lock: sync::TryLockResult<$guard> = unsafe { mem::transmute($handle.$lfunc()) };
 
         match lock {
-            Ok(guard) => Ok(Some($guardian {
+            Ok(guard) => Some(Ok($guardian {
                 _handle: $handle,
                 inner: Some(guard),
             })),
-            Err(WouldBlock) => Ok(None),
-            Err(Poisoned(guard)) => Err(sync::PoisonError::new(Some($guardian {
+            Err(WouldBlock) => None,
+            Err(Poisoned(guard)) => Some(Err(sync::PoisonError::new($guardian {
                 _handle: $handle,
                 inner: Some(guard.into_inner()),
             }))),
@@ -290,7 +290,7 @@ impl<T> ArcRwLockReadGuardian<T> {
 
     pub fn try_take(
         handle: sync::Arc<sync::RwLock<T>>,
-    ) -> sync::LockResult<Option<ArcRwLockReadGuardian<T>>> {
+    ) -> Option<sync::LockResult<ArcRwLockReadGuardian<T>>> {
         try_take!(
             handle,
             sync::RwLockReadGuard<'static, T>,
@@ -327,7 +327,7 @@ impl<T> ArcRwLockWriteGuardian<T> {
 
     pub fn try_take(
         handle: sync::Arc<sync::RwLock<T>>,
-    ) -> sync::LockResult<Option<ArcRwLockWriteGuardian<T>>> {
+    ) -> Option<sync::LockResult<ArcRwLockWriteGuardian<T>>> {
         try_take!(
             handle,
             sync::RwLockWriteGuard<'static, T>,
@@ -356,7 +356,7 @@ impl<T> ArcMutexGuardian<T> {
 
     pub fn try_take(
         handle: sync::Arc<sync::Mutex<T>>,
-    ) -> sync::LockResult<Option<ArcMutexGuardian<T>>> {
+    ) -> Option<sync::LockResult<ArcMutexGuardian<T>>> {
         try_take!(
             handle,
             sync::MutexGuard<'static, T>,
@@ -391,7 +391,7 @@ impl<T> RcRwLockReadGuardian<T> {
 
     pub fn try_take(
         handle: rc::Rc<sync::RwLock<T>>,
-    ) -> sync::LockResult<Option<RcRwLockReadGuardian<T>>> {
+    ) -> Option<sync::LockResult<RcRwLockReadGuardian<T>>> {
         try_take!(
             handle,
             sync::RwLockReadGuard<'static, T>,
@@ -428,7 +428,7 @@ impl<T> RcRwLockWriteGuardian<T> {
 
     pub fn try_take(
         handle: rc::Rc<sync::RwLock<T>>,
-    ) -> sync::LockResult<Option<RcRwLockWriteGuardian<T>>> {
+    ) -> Option<sync::LockResult<RcRwLockWriteGuardian<T>>> {
         try_take!(
             handle,
             sync::RwLockWriteGuard<'static, T>,
@@ -457,7 +457,7 @@ impl<T> RcMutexGuardian<T> {
 
     pub fn try_take(
         handle: rc::Rc<sync::Mutex<T>>,
-    ) -> sync::LockResult<Option<RcMutexGuardian<T>>> {
+    ) -> Option<sync::LockResult<RcMutexGuardian<T>>> {
         try_take!(
             handle,
             sync::MutexGuard<'static, T>,
@@ -617,13 +617,9 @@ mod tests {
         assert!(base.try_read().is_err(), "guardian still holds write lock");
 
         // try_take returns None if it would block
-        assert!(ArcRwLockWriteGuardian::try_take(base.clone())
-            .unwrap()
-            .is_none());
+        assert!(ArcRwLockWriteGuardian::try_take(base.clone()).is_none());
 
-        assert!(ArcRwLockReadGuardian::try_take(base.clone())
-            .unwrap()
-            .is_none());
+        assert!(ArcRwLockReadGuardian::try_take(base.clone()).is_none());
 
         // dropping guardian drops write lock
         drop(x_);
@@ -690,7 +686,7 @@ mod tests {
         assert!(base.try_lock().is_err(), "guardian still holds lock");
 
         // try_take returns None if it would block
-        assert!(ArcMutexGuardian::try_take(base.clone()).unwrap().is_none());
+        assert!(ArcMutexGuardian::try_take(base.clone()).is_none());
 
         // dropping guardian drops lock
         drop(x_);
@@ -801,13 +797,9 @@ mod tests {
         assert!(base.try_read().is_err(), "guardian still holds write lock");
 
         // try_take returns None if it would block
-        assert!(RcRwLockWriteGuardian::try_take(base.clone())
-            .unwrap()
-            .is_none());
+        assert!(RcRwLockWriteGuardian::try_take(base.clone()).is_none());
 
-        assert!(RcRwLockReadGuardian::try_take(base.clone())
-            .unwrap()
-            .is_none());
+        assert!(RcRwLockReadGuardian::try_take(base.clone()).is_none());
 
         // dropping guardian drops write lock
         drop(x_);
@@ -874,7 +866,7 @@ mod tests {
         assert!(base.try_lock().is_err(), "guardian still holds lock");
 
         // try_take returns None if it would block
-        assert!(RcMutexGuardian::try_take(base.clone()).unwrap().is_none());
+        assert!(RcMutexGuardian::try_take(base.clone()).is_none());
 
         // dropping guardian drops lock
         drop(x_);
