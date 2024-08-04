@@ -213,32 +213,6 @@ impl<T> From<rc::Rc<sync::Mutex<T>>> for RcMutexGuardian<T> {
 // macros
 // ****************************************************************************
 
-macro_rules! try_take {
-    ( $handle: ident, $guard:ty, $guardian:ident, $lfunc:ident ) => {{
-        use std::mem;
-        use std::sync::TryLockError::{Poisoned, WouldBlock};
-
-        // We want to express that it's safe to keep the read guard around for as long as the
-        // Arc/Rc is around. Unfortunately, we can't say this directly with lifetimes, because
-        // we have to move the Arc/Rc below, which Rust doesn't know allows the borrow to
-        // continue. We therefore transmute to a 'static Guard, and ensure that any borrows we
-        // expose are bounded by the lifetime of the guardian (which also holds the Arc/Rc).
-        let lock: sync::TryLockResult<$guard> = unsafe { mem::transmute($handle.$lfunc()) };
-
-        match lock {
-            Ok(guard) => Some(Ok($guardian {
-                _handle: $handle,
-                inner: Some(guard),
-            })),
-            Err(WouldBlock) => None,
-            Err(Poisoned(guard)) => Some(Err(sync::PoisonError::new($guardian {
-                _handle: $handle,
-                inner: Some(guard.into_inner()),
-            }))),
-        }
-    }};
-}
-
 macro_rules! take {
     ( $handle: ident, $guard:ty, $guardian:ident, $lfunc:ident ) => {{
         use std::mem;
@@ -259,6 +233,28 @@ macro_rules! take {
                 _handle: $handle,
                 inner: Some(guard.into_inner()),
             })),
+        }
+    }};
+}
+
+macro_rules! try_take {
+    ( $handle: ident, $guard:ty, $guardian:ident, $lfunc:ident ) => {{
+        use std::mem;
+        use std::sync::TryLockError::{Poisoned, WouldBlock};
+
+        // Safe following the same reasoning as in take!.
+        let lock: sync::TryLockResult<$guard> = unsafe { mem::transmute($handle.$lfunc()) };
+
+        match lock {
+            Ok(guard) => Some(Ok($guardian {
+                _handle: $handle,
+                inner: Some(guard),
+            })),
+            Err(WouldBlock) => None,
+            Err(Poisoned(guard)) => Some(Err(sync::PoisonError::new($guardian {
+                _handle: $handle,
+                inner: Some(guard.into_inner()),
+            }))),
         }
     }};
 }
@@ -288,6 +284,16 @@ impl<T> ArcRwLockReadGuardian<T> {
         )
     }
 
+    /// Attempts to acquire this rwlock with shared read access.
+    ///
+    /// If the access could not be granted at this time, then `None` is returned.
+    /// Otherwise, an RAII guard is returned which will release the shared access when it is dropped.
+    /// The guardian also holds a strong reference to the lock's `Arc`, which is dropped when the
+    /// guard is.
+    ///
+    /// This function does not block.
+    ///
+    /// This function does not provide any guarantees with respect to the ordering of whether contentious readers or writers will acquire the lock first.
     pub fn try_take(
         handle: sync::Arc<sync::RwLock<T>>,
     ) -> Option<sync::LockResult<ArcRwLockReadGuardian<T>>> {
@@ -325,6 +331,16 @@ impl<T> ArcRwLockWriteGuardian<T> {
         )
     }
 
+    /// Attempts to lock this rwlock with exclusive write access.
+    /// 
+    /// If the access could not be granted at this time, then `None` is returned.
+    /// Otherwise, an RAII guard is returned, which will drop the write access of this rwlock when dropped.
+    /// The guardian also holds a strong reference to the lock's `Arc`, which is dropped when the
+    /// guard is.
+    ///
+    /// This function does not block.
+    ///
+    /// This function does not provide any guarantees with respect to the ordering of whether contentious readers or writers will acquire the lock first.
     pub fn try_take(
         handle: sync::Arc<sync::RwLock<T>>,
     ) -> Option<sync::LockResult<ArcRwLockWriteGuardian<T>>> {
@@ -354,6 +370,14 @@ impl<T> ArcMutexGuardian<T> {
         take!(handle, sync::MutexGuard<'static, T>, ArcMutexGuardian, lock)
     }
 
+    /// Attempts to acquire this lock.
+    ///
+    /// If the lock could not be acquired at this time, then `None` is returned.
+    /// Otherwise, an RAII guard is returned. The lock will be unlocked when the guard is dropped.
+    /// The guardian also holds a strong reference to the lock's `Arc`, which is dropped
+    /// when the guard is.
+    ///
+    /// This function does not block.
     pub fn try_take(
         handle: sync::Arc<sync::Mutex<T>>,
     ) -> Option<sync::LockResult<ArcMutexGuardian<T>>> {
@@ -389,6 +413,16 @@ impl<T> RcRwLockReadGuardian<T> {
         )
     }
 
+    /// Attempts to acquire this rwlock with shared read access.
+    ///
+    /// If the access could not be granted at this time, then `None` is returned.
+    /// Otherwise, an RAII guard is returned which will release the shared access when it is dropped.
+    /// The guardian also holds a strong reference to the lock's `Rc`, which is dropped when the
+    /// guard is.
+    ///
+    /// This function does not block.
+    ///
+    /// This function does not provide any guarantees with respect to the ordering of whether contentious readers or writers will acquire the lock first.
     pub fn try_take(
         handle: rc::Rc<sync::RwLock<T>>,
     ) -> Option<sync::LockResult<RcRwLockReadGuardian<T>>> {
@@ -426,6 +460,16 @@ impl<T> RcRwLockWriteGuardian<T> {
         )
     }
 
+    /// Attempts to lock this rwlock with exclusive write access.
+    /// 
+    /// If the access could not be granted at this time, then `None` is returned.
+    /// Otherwise, an RAII guard is returned, which will drop the write access of this rwlock when dropped.
+    /// The guardian also holds a strong reference to the lock's `Rc`, which is dropped when the
+    /// guard is.
+    ///
+    /// This function does not block.
+    ///
+    /// This function does not provide any guarantees with respect to the ordering of whether contentious readers or writers will acquire the lock first.
     pub fn try_take(
         handle: rc::Rc<sync::RwLock<T>>,
     ) -> Option<sync::LockResult<RcRwLockWriteGuardian<T>>> {
@@ -455,6 +499,14 @@ impl<T> RcMutexGuardian<T> {
         take!(handle, sync::MutexGuard<'static, T>, RcMutexGuardian, lock)
     }
 
+    /// Attempts to acquire this lock.
+    ///
+    /// If the lock could not be acquired at this time, then `None` is returned.
+    /// Otherwise, an RAII guard is returned. The lock will be unlocked when the guard is dropped.
+    /// The guardian also holds a strong reference to the lock's `Rc`, which is dropped
+    /// when the guard is.
+    ///
+    /// This function does not block.
     pub fn try_take(
         handle: rc::Rc<sync::Mutex<T>>,
     ) -> Option<sync::LockResult<RcMutexGuardian<T>>> {
