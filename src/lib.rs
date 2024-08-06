@@ -332,7 +332,7 @@ impl<T> ArcRwLockWriteGuardian<T> {
     }
 
     /// Attempts to lock this rwlock with exclusive write access.
-    /// 
+    ///
     /// If the access could not be granted at this time, then `None` is returned.
     /// Otherwise, an RAII guard is returned, which will drop the write access of this rwlock when dropped.
     /// The guardian also holds a strong reference to the lock's `Arc`, which is dropped when the
@@ -461,7 +461,7 @@ impl<T> RcRwLockWriteGuardian<T> {
     }
 
     /// Attempts to lock this rwlock with exclusive write access.
-    /// 
+    ///
     /// If the access could not be granted at this time, then `None` is returned.
     /// Otherwise, an RAII guard is returned, which will drop the write access of this rwlock when dropped.
     /// The guardian also holds a strong reference to the lock's `Rc`, which is dropped when the
