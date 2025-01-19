@@ -38,7 +38,7 @@ use std::sync;
 ///
 /// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
 /// implementations.
-pub struct ArcRwLockReadGuardian<T: 'static> {
+pub struct ArcRwLockReadGuardian<T: ?Sized + 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
     inner: Option<sync::RwLockReadGuard<'static, T>>,
 }
@@ -48,7 +48,7 @@ pub struct ArcRwLockReadGuardian<T: 'static> {
 ///
 /// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
 /// implementations.
-pub struct ArcRwLockWriteGuardian<T: 'static> {
+pub struct ArcRwLockWriteGuardian<T: ?Sized + 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
     inner: Option<sync::RwLockWriteGuard<'static, T>>,
 }
@@ -59,7 +59,7 @@ pub struct ArcRwLockWriteGuardian<T: 'static> {
 ///
 /// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
 /// implementations.
-pub struct ArcMutexGuardian<T: 'static> {
+pub struct ArcMutexGuardian<T: ?Sized + 'static> {
     _handle: sync::Arc<sync::Mutex<T>>,
     inner: Option<sync::MutexGuard<'static, T>>,
 }
@@ -69,7 +69,7 @@ pub struct ArcMutexGuardian<T: 'static> {
 ///
 /// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
 /// implementations.
-pub struct RcRwLockReadGuardian<T: 'static> {
+pub struct RcRwLockReadGuardian<T: ?Sized + 'static> {
     _handle: rc::Rc<sync::RwLock<T>>,
     inner: Option<sync::RwLockReadGuard<'static, T>>,
 }
@@ -79,7 +79,7 @@ pub struct RcRwLockReadGuardian<T: 'static> {
 ///
 /// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
 /// implementations.
-pub struct RcRwLockWriteGuardian<T: 'static> {
+pub struct RcRwLockWriteGuardian<T: ?Sized + 'static> {
     _handle: rc::Rc<sync::RwLock<T>>,
     inner: Option<sync::RwLockWriteGuard<'static, T>>,
 }
@@ -90,7 +90,7 @@ pub struct RcRwLockWriteGuardian<T: 'static> {
 ///
 /// The data protected by the mutex can be access through this guard via its `Deref` and `DerefMut`
 /// implementations.
-pub struct RcMutexGuardian<T: 'static> {
+pub struct RcMutexGuardian<T: ?Sized + 'static> {
     _handle: rc::Rc<sync::Mutex<T>>,
     inner: Option<sync::MutexGuard<'static, T>>,
 }
@@ -99,42 +99,42 @@ pub struct RcMutexGuardian<T: 'static> {
 // Traits: Deref
 // ****************************************************************************
 
-impl<T> Deref for ArcRwLockReadGuardian<T> {
+impl<T: ?Sized> Deref for ArcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
-impl<T> Deref for ArcRwLockWriteGuardian<T> {
+impl<T: ?Sized> Deref for ArcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
-impl<T> Deref for ArcMutexGuardian<T> {
+impl<T: ?Sized> Deref for ArcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
-impl<T> Deref for RcRwLockReadGuardian<T> {
+impl<T: ?Sized> Deref for RcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
-impl<T> Deref for RcRwLockWriteGuardian<T> {
+impl<T: ?Sized> Deref for RcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.inner.as_ref().expect("inner is None only in drop")
     }
 }
 
-impl<T> Deref for RcMutexGuardian<T> {
+impl<T: ?Sized> Deref for RcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.inner.as_ref().expect("inner is None only in drop")
@@ -145,25 +145,25 @@ impl<T> Deref for RcMutexGuardian<T> {
 // Traits: DerefMut
 // ****************************************************************************
 
-impl<T> DerefMut for ArcRwLockWriteGuardian<T> {
+impl<T: ?Sized> DerefMut for ArcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
         self.inner.as_mut().expect("inner is None only in drop")
     }
 }
 
-impl<T> DerefMut for RcRwLockWriteGuardian<T> {
+impl<T: ?Sized> DerefMut for RcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
         self.inner.as_mut().expect("inner is None only in drop")
     }
 }
 
-impl<T> DerefMut for ArcMutexGuardian<T> {
+impl<T: ?Sized> DerefMut for ArcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
         self.inner.as_mut().expect("inner is None only in drop")
     }
 }
 
-impl<T> DerefMut for RcMutexGuardian<T> {
+impl<T: ?Sized> DerefMut for RcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
         self.inner.as_mut().expect("inner is None only in drop")
     }
@@ -173,37 +173,37 @@ impl<T> DerefMut for RcMutexGuardian<T> {
 // Traits: From
 // ****************************************************************************
 
-impl<T> From<sync::Arc<sync::RwLock<T>>> for ArcRwLockReadGuardian<T> {
+impl<T: ?Sized> From<sync::Arc<sync::RwLock<T>>> for ArcRwLockReadGuardian<T> {
     fn from(handle: sync::Arc<sync::RwLock<T>>) -> Self {
         ArcRwLockReadGuardian::take(handle).unwrap()
     }
 }
 
-impl<T> From<sync::Arc<sync::RwLock<T>>> for ArcRwLockWriteGuardian<T> {
+impl<T: ?Sized> From<sync::Arc<sync::RwLock<T>>> for ArcRwLockWriteGuardian<T> {
     fn from(handle: sync::Arc<sync::RwLock<T>>) -> Self {
         ArcRwLockWriteGuardian::take(handle).unwrap()
     }
 }
 
-impl<T> From<sync::Arc<sync::Mutex<T>>> for ArcMutexGuardian<T> {
+impl<T: ?Sized> From<sync::Arc<sync::Mutex<T>>> for ArcMutexGuardian<T> {
     fn from(handle: sync::Arc<sync::Mutex<T>>) -> Self {
         ArcMutexGuardian::take(handle).unwrap()
     }
 }
 
-impl<T> From<rc::Rc<sync::RwLock<T>>> for RcRwLockReadGuardian<T> {
+impl<T: ?Sized> From<rc::Rc<sync::RwLock<T>>> for RcRwLockReadGuardian<T> {
     fn from(handle: rc::Rc<sync::RwLock<T>>) -> Self {
         RcRwLockReadGuardian::take(handle).unwrap()
     }
 }
 
-impl<T> From<rc::Rc<sync::RwLock<T>>> for RcRwLockWriteGuardian<T> {
+impl<T: ?Sized> From<rc::Rc<sync::RwLock<T>>> for RcRwLockWriteGuardian<T> {
     fn from(handle: rc::Rc<sync::RwLock<T>>) -> Self {
         RcRwLockWriteGuardian::take(handle).unwrap()
     }
 }
 
-impl<T> From<rc::Rc<sync::Mutex<T>>> for RcMutexGuardian<T> {
+impl<T: ?Sized> From<rc::Rc<sync::Mutex<T>>> for RcMutexGuardian<T> {
     fn from(handle: rc::Rc<sync::Mutex<T>>) -> Self {
         RcMutexGuardian::take(handle).unwrap()
     }
@@ -263,7 +263,7 @@ macro_rules! try_take {
 // impl
 // ****************************************************************************
 
-impl<T> ArcRwLockReadGuardian<T> {
+impl<T: ?Sized> ArcRwLockReadGuardian<T> {
     /// Locks the given rwlock with shared read access, blocking the current thread until it can be
     /// acquired.
     ///
@@ -306,7 +306,7 @@ impl<T> ArcRwLockReadGuardian<T> {
     }
 }
 
-impl<T> ArcRwLockWriteGuardian<T> {
+impl<T: ?Sized> ArcRwLockWriteGuardian<T> {
     /// Locks this rwlock with exclusive write access, blocking the current thread until it can be
     /// acquired.
     ///
@@ -353,7 +353,7 @@ impl<T> ArcRwLockWriteGuardian<T> {
     }
 }
 
-impl<T> ArcMutexGuardian<T> {
+impl<T: ?Sized> ArcMutexGuardian<T> {
     /// Acquires a mutex, blocking the current thread until it is able to do so.
     ///
     /// This function will block the local thread until it is available to acquire the mutex. Upon
@@ -392,7 +392,7 @@ impl<T> ArcMutexGuardian<T> {
 
 // And this is all the same as above, but with s/Arc/Rc/
 
-impl<T> RcRwLockReadGuardian<T> {
+impl<T: ?Sized> RcRwLockReadGuardian<T> {
     /// Locks the given rwlock with shared read access, blocking the current thread until it can be
     /// acquired.
     ///
@@ -435,7 +435,7 @@ impl<T> RcRwLockReadGuardian<T> {
     }
 }
 
-impl<T> RcRwLockWriteGuardian<T> {
+impl<T: ?Sized> RcRwLockWriteGuardian<T> {
     /// Locks this rwlock with exclusive write access, blocking the current thread until it can be
     /// acquired.
     ///
@@ -482,7 +482,7 @@ impl<T> RcRwLockWriteGuardian<T> {
     }
 }
 
-impl<T> RcMutexGuardian<T> {
+impl<T: ?Sized> RcMutexGuardian<T> {
     /// Acquires a mutex, blocking the current thread until it is able to do so.
     ///
     /// This function will block the local thread until it is available to acquire the mutex. Upon
@@ -523,37 +523,37 @@ impl<T> RcMutexGuardian<T> {
 // Drop
 // ****************************************************************************
 
-impl<T> Drop for ArcRwLockReadGuardian<T> {
+impl<T: ?Sized> Drop for ArcRwLockReadGuardian<T> {
     fn drop(&mut self) {
         self.inner.take();
     }
 }
 
-impl<T> Drop for ArcRwLockWriteGuardian<T> {
+impl<T: ?Sized> Drop for ArcRwLockWriteGuardian<T> {
     fn drop(&mut self) {
         self.inner.take();
     }
 }
 
-impl<T> Drop for ArcMutexGuardian<T> {
+impl<T: ?Sized> Drop for ArcMutexGuardian<T> {
     fn drop(&mut self) {
         self.inner.take();
     }
 }
 
-impl<T> Drop for RcRwLockReadGuardian<T> {
+impl<T: ?Sized> Drop for RcRwLockReadGuardian<T> {
     fn drop(&mut self) {
         self.inner.take();
     }
 }
 
-impl<T> Drop for RcRwLockWriteGuardian<T> {
+impl<T: ?Sized> Drop for RcRwLockWriteGuardian<T> {
     fn drop(&mut self) {
         self.inner.take();
     }
 }
 
-impl<T> Drop for RcMutexGuardian<T> {
+impl<T: ?Sized> Drop for RcMutexGuardian<T> {
     fn drop(&mut self) {
         self.inner.take();
     }
