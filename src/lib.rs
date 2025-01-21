@@ -209,20 +209,24 @@ impl<T: ?Sized> From<rc::Rc<sync::Mutex<T>>> for RcMutexGuardian<T> {
     }
 }
 
+/// Turn any reference to a 'static one.
+unsafe fn make_static<T: ?Sized>(r: &T) -> &'static T {
+    &*(r as *const T)
+}
+
 // ****************************************************************************
 // macros
 // ****************************************************************************
 
 macro_rules! take {
     ( $handle: ident, $guard:ty, $guardian:ident, $lfunc:ident ) => {{
-        use std::mem;
-
         // We want to express that it's safe to keep the read guard around for as long as the
         // Arc/Rc is around. Unfortunately, we can't say this directly with lifetimes, because
         // we have to move the Arc/Rc below, which Rust doesn't know allows the borrow to
-        // continue. We therefore transmute to a 'static Guard, and ensure that any borrows we
-        // expose are bounded by the lifetime of the guardian (which also holds the Arc/Rc).
-        let lock: sync::LockResult<$guard> = unsafe { mem::transmute($handle.$lfunc()) };
+        // continue. We therefore make a temporary 'static reference to the handle to get
+        // a 'static Guard, and ensure that any borrows we expose are bounded
+        // by the lifetime of the guardian (which also holds the Arc/Rc).
+        let lock: sync::LockResult<$guard> = unsafe { make_static(&$handle).$lfunc() };
 
         match lock {
             Ok(guard) => Ok($guardian {
@@ -239,11 +243,10 @@ macro_rules! take {
 
 macro_rules! try_take {
     ( $handle: ident, $guard:ty, $guardian:ident, $lfunc:ident ) => {{
-        use std::mem;
         use std::sync::TryLockError::{Poisoned, WouldBlock};
 
         // Safe following the same reasoning as in take!.
-        let lock: sync::TryLockResult<$guard> = unsafe { mem::transmute($handle.$lfunc()) };
+        let lock: sync::TryLockResult<$guard> = unsafe { make_static(&$handle).$lfunc() };
 
         match lock {
             Ok(guard) => Some(Ok($guardian {
