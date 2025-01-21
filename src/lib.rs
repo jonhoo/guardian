@@ -103,42 +103,42 @@ pub struct RcMutexGuardian<T: 'static> {
 impl<T> Deref for ArcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.deref()
     }
 }
 
 impl<T> Deref for ArcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.deref()
     }
 }
 
 impl<T> Deref for ArcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.deref()
     }
 }
 
 impl<T> Deref for RcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.deref()
     }
 }
 
 impl<T> Deref for RcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.deref()
     }
 }
 
 impl<T> Deref for RcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.deref()
     }
 }
 
@@ -148,25 +148,25 @@ impl<T> Deref for RcMutexGuardian<T> {
 
 impl<T> DerefMut for ArcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut self.inner
+        self.inner.deref_mut()
     }
 }
 
 impl<T> DerefMut for RcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut self.inner
+        self.inner.deref_mut()
     }
 }
 
 impl<T> DerefMut for ArcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut self.inner
+        self.inner.deref_mut()
     }
 }
 
 impl<T> DerefMut for RcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut self.inner
+        self.inner.deref_mut()
     }
 }
 
@@ -527,7 +527,7 @@ impl<T> RcMutexGuardian<T> {
 impl<T> Drop for ArcRwLockReadGuardian<T> {
     fn drop(&mut self) {
         // Rust Drop glue don't specify the drop order of a struct fields,
-        // but because the guard access the handle during it's drop we need to ensure
+        // but because the guard access the handle during its drop, we need to ensure
         // that it is dropped *before* the handle.
         // For that we wrap it in a `ManuallyDrop` and drop it ourselves before the drop glue.
         // It is safe to drop it here as it will never be accessed again.
