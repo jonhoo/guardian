@@ -16,6 +16,7 @@
 //! result may be poisoned on panics. The poison is propagated from that of the underlying `lock()`
 //! method, so for `RwLock`s, the same rule applies for when a lock may be poisioned.
 
+use std::mem::ManuallyDrop;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::rc;
@@ -26,7 +27,7 @@ use std::sync;
 // RwLock. If you change anything for one type, be sure to also make the same changes to the other
 // variants below.
 //
-// Each structure holds the guard in an Option to ensure that we drop the guard before we drop the
+// Each structure holds the guard in an `ManuallyDrop` to ensure that we drop the guard before we drop the
 // handle, as dropping the guard will access the handle.
 
 // ****************************************************************************
@@ -40,7 +41,7 @@ use std::sync;
 /// implementations.
 pub struct ArcRwLockReadGuardian<T: ?Sized + 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
-    inner: Option<sync::RwLockReadGuard<'static, T>>,
+    inner: ManuallyDrop<sync::RwLockReadGuard<'static, T>>,
 }
 
 /// RAII structure used to release the exclusive write access of a lock when dropped.
@@ -50,7 +51,7 @@ pub struct ArcRwLockReadGuardian<T: ?Sized + 'static> {
 /// implementations.
 pub struct ArcRwLockWriteGuardian<T: ?Sized + 'static> {
     _handle: sync::Arc<sync::RwLock<T>>,
-    inner: Option<sync::RwLockWriteGuard<'static, T>>,
+    inner: ManuallyDrop<sync::RwLockWriteGuard<'static, T>>,
 }
 
 /// An RAII implementation of a "scoped lock" of a mutex. When this structure is dropped (falls out
@@ -61,7 +62,7 @@ pub struct ArcRwLockWriteGuardian<T: ?Sized + 'static> {
 /// implementations.
 pub struct ArcMutexGuardian<T: ?Sized + 'static> {
     _handle: sync::Arc<sync::Mutex<T>>,
-    inner: Option<sync::MutexGuard<'static, T>>,
+    inner: ManuallyDrop<sync::MutexGuard<'static, T>>,
 }
 
 /// RAII structure used to release the shared read access of a lock when dropped.
@@ -71,7 +72,7 @@ pub struct ArcMutexGuardian<T: ?Sized + 'static> {
 /// implementations.
 pub struct RcRwLockReadGuardian<T: ?Sized + 'static> {
     _handle: rc::Rc<sync::RwLock<T>>,
-    inner: Option<sync::RwLockReadGuard<'static, T>>,
+    inner: ManuallyDrop<sync::RwLockReadGuard<'static, T>>,
 }
 
 /// RAII structure used to release the exclusive write access of a lock when dropped.
@@ -81,7 +82,7 @@ pub struct RcRwLockReadGuardian<T: ?Sized + 'static> {
 /// implementations.
 pub struct RcRwLockWriteGuardian<T: ?Sized + 'static> {
     _handle: rc::Rc<sync::RwLock<T>>,
-    inner: Option<sync::RwLockWriteGuard<'static, T>>,
+    inner: ManuallyDrop<sync::RwLockWriteGuard<'static, T>>,
 }
 
 /// An RAII implementation of a "scoped lock" of a mutex. When this structure is dropped (falls out
@@ -92,7 +93,7 @@ pub struct RcRwLockWriteGuardian<T: ?Sized + 'static> {
 /// implementations.
 pub struct RcMutexGuardian<T: ?Sized + 'static> {
     _handle: rc::Rc<sync::Mutex<T>>,
-    inner: Option<sync::MutexGuard<'static, T>>,
+    inner: ManuallyDrop<sync::MutexGuard<'static, T>>,
 }
 
 // ****************************************************************************
@@ -102,42 +103,42 @@ pub struct RcMutexGuardian<T: ?Sized + 'static> {
 impl<T: ?Sized> Deref for ArcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref().expect("inner is None only in drop")
+        self.inner.deref()
     }
 }
 
 impl<T: ?Sized> Deref for ArcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref().expect("inner is None only in drop")
+        self.inner.deref()
     }
 }
 
 impl<T: ?Sized> Deref for ArcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref().expect("inner is None only in drop")
+        self.inner.deref()
     }
 }
 
 impl<T: ?Sized> Deref for RcRwLockReadGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref().expect("inner is None only in drop")
+        self.inner.deref()
     }
 }
 
 impl<T: ?Sized> Deref for RcRwLockWriteGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref().expect("inner is None only in drop")
+        self.inner.deref()
     }
 }
 
 impl<T: ?Sized> Deref for RcMutexGuardian<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        self.inner.as_ref().expect("inner is None only in drop")
+        self.inner.deref()
     }
 }
 
@@ -147,25 +148,25 @@ impl<T: ?Sized> Deref for RcMutexGuardian<T> {
 
 impl<T: ?Sized> DerefMut for ArcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        self.inner.as_mut().expect("inner is None only in drop")
+        self.inner.deref_mut()
     }
 }
 
 impl<T: ?Sized> DerefMut for RcRwLockWriteGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        self.inner.as_mut().expect("inner is None only in drop")
+        self.inner.deref_mut()
     }
 }
 
 impl<T: ?Sized> DerefMut for ArcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        self.inner.as_mut().expect("inner is None only in drop")
+        self.inner.deref_mut()
     }
 }
 
 impl<T: ?Sized> DerefMut for RcMutexGuardian<T> {
     fn deref_mut(&mut self) -> &mut T {
-        self.inner.as_mut().expect("inner is None only in drop")
+        self.inner.deref_mut()
     }
 }
 
@@ -231,11 +232,11 @@ macro_rules! take {
         match lock {
             Ok(guard) => Ok($guardian {
                 _handle: $handle,
-                inner: Some(guard),
+                inner: ManuallyDrop::new(guard),
             }),
             Err(guard) => Err(sync::PoisonError::new($guardian {
                 _handle: $handle,
-                inner: Some(guard.into_inner()),
+                inner: ManuallyDrop::new(guard.into_inner()),
             })),
         }
     }};
@@ -251,12 +252,12 @@ macro_rules! try_take {
         match lock {
             Ok(guard) => Some(Ok($guardian {
                 _handle: $handle,
-                inner: Some(guard),
+                inner: ManuallyDrop::new(guard),
             })),
             Err(WouldBlock) => None,
             Err(Poisoned(guard)) => Some(Err(sync::PoisonError::new($guardian {
                 _handle: $handle,
-                inner: Some(guard.into_inner()),
+                inner: ManuallyDrop::new(guard.into_inner()),
             }))),
         }
     }};
@@ -528,37 +529,59 @@ impl<T: ?Sized> RcMutexGuardian<T> {
 
 impl<T: ?Sized> Drop for ArcRwLockReadGuardian<T> {
     fn drop(&mut self) {
-        self.inner.take();
+        // Rust Drop glue don't specify the drop order of a struct fields,
+        // but because the guard access the handle during its drop, we need to ensure
+        // that it is dropped *before* the handle.
+        // For that we wrap it in a `ManuallyDrop` and drop it ourselves before the drop glue.
+        // It is safe to drop it here as it will never be accessed again.
+        unsafe {
+            ManuallyDrop::drop(&mut self.inner);
+        }
     }
 }
 
 impl<T: ?Sized> Drop for ArcRwLockWriteGuardian<T> {
     fn drop(&mut self) {
-        self.inner.take();
+        // Safety: Same reasons as `ArcRwLockGuardian`
+        unsafe {
+            ManuallyDrop::drop(&mut self.inner);
+        }
     }
 }
 
 impl<T: ?Sized> Drop for ArcMutexGuardian<T> {
     fn drop(&mut self) {
-        self.inner.take();
+        // Safety: Same reasons as `ArcRwLockGuardian`
+        unsafe {
+            ManuallyDrop::drop(&mut self.inner);
+        }
     }
 }
 
 impl<T: ?Sized> Drop for RcRwLockReadGuardian<T> {
     fn drop(&mut self) {
-        self.inner.take();
+        // Safety: Same reasons as `ArcRwLockGuardian`
+        unsafe {
+            ManuallyDrop::drop(&mut self.inner);
+        }
     }
 }
 
 impl<T: ?Sized> Drop for RcRwLockWriteGuardian<T> {
     fn drop(&mut self) {
-        self.inner.take();
+        // Safety: Same reasons as `ArcRwLockGuardian`
+        unsafe {
+            ManuallyDrop::drop(&mut self.inner);
+        }
     }
 }
 
 impl<T: ?Sized> Drop for RcMutexGuardian<T> {
     fn drop(&mut self) {
-        self.inner.take();
+        // Safety: Same reasons as `ArcRwLockGuardian`
+        unsafe {
+            ManuallyDrop::drop(&mut self.inner);
+        }
     }
 }
 
